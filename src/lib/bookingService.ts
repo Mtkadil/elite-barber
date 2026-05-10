@@ -27,6 +27,7 @@ export const bookingService = {
         createdAt: serverTimestamp(),
       };
       
+      console.log('Sending Booking Payload:', payload);
       await setDoc(bookingRef, payload);
       return bookingRef.id;
     } catch (error) {

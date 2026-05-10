@@ -10,7 +10,8 @@ import {
   ChevronLeft,
   Calendar as CalendarIcon,
   CheckCircle2,
-  Phone
+  Phone,
+  Settings
 } from 'lucide-react';
 import { SHOPS, SERVICES, BARBERS } from './constants';
 import { cn } from './lib/utils';
@@ -31,6 +32,7 @@ export default function App() {
   const [isBooking, setIsBooking] = useState(false);
   const [busySlots, setBusySlots] = useState<{ start: string; end: string }[]>([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+  const [isCalendarConnected, setIsCalendarConnected] = useState(false);
 
   const selectedShop = SHOPS.find(s => s.id === selectedShopId);
   const selectedBarber = BARBERS.find(b => b.id === selectedBarberId);
@@ -44,22 +46,48 @@ export default function App() {
   const baseTimes = ['09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00', '16:00', '17:00'];
 
   useEffect(() => {
-    if (step === 'datetime' && selectedBarber?.calendarId && selectedDate) {
-      const fetchAvailability = async () => {
-        setIsLoadingCalendar(true);
-        try {
-          const { calendarService } = await import('./lib/calendarService');
-          const busy = await calendarService.getBusySlots(selectedBarber.calendarId, selectedDate);
-          setBusySlots(busy);
-        } catch (e) {
-          console.error('Failed to fetch busy slots', e);
-        } finally {
-          setIsLoadingCalendar(false);
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        setIsCalendarConnected(true);
+        // Refresh availability if we are on that step
+        if (step === 'datetime' && selectedBarber?.calendarId && selectedDate) {
+          fetchAvailability();
         }
-      };
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [step, selectedBarber, selectedDate]);
+
+  const fetchAvailability = async () => {
+    if (!selectedBarber?.calendarId || !selectedDate) return;
+    setIsLoadingCalendar(true);
+    try {
+      const { calendarService } = await import('./lib/calendarService');
+      const busy = await calendarService.getBusySlots(selectedBarber.calendarId, selectedDate);
+      setBusySlots(busy);
+    } catch (e) {
+      console.error('Failed to fetch busy slots', e);
+    } finally {
+      setIsLoadingCalendar(false);
+    }
+  };
+
+  useEffect(() => {
+    if (step === 'datetime' && selectedBarber?.calendarId && selectedDate) {
       fetchAvailability();
     }
   }, [step, selectedBarber?.calendarId, selectedDate]);
+
+  const handleConnectGoogle = async () => {
+    try {
+      const { calendarService } = await import('./lib/calendarService');
+      const url = await calendarService.getAuthUrl();
+      window.open(url, 'google_auth', 'width=600,height=700');
+    } catch (e) {
+      alert('Impossibile caricare il link di login Google');
+    }
+  };
 
   const availableTimes = useMemo(() => {
     return baseTimes.filter(time => {
@@ -78,6 +106,18 @@ export default function App() {
       });
     });
   }, [baseTimes, busySlots, selectedDate, selectedService]);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const { seedDatabase } = await import('./lib/seed');
+        await seedDatabase();
+      } catch (e) {
+        console.error('Seeding failed', e);
+      }
+    };
+    init();
+  }, []);
 
   const handleBookingConfirm = async () => {
     if (!selectedShopId || !selectedBarberId || !selectedServiceId || !selectedTime || !customerName || !customerPhone) {
@@ -143,6 +183,26 @@ export default function App() {
 
   return (
     <div className="min-h-screen text-white font-sans selection:bg-accent/30 overflow-x-hidden">
+      {/* Admin Bar */}
+      <div className="relative z-[60] bg-zinc-900 border-b border-white/5 py-2 px-6 flex justify-between items-center text-[10px] font-black uppercase tracking-widest italic overflow-hidden">
+        <span className="flex items-center gap-2 opacity-60">
+          <Settings className="w-3 h-3 text-accent" />
+          Dashboard Barbiere
+        </span>
+        <button 
+          onClick={handleConnectGoogle}
+          className={cn(
+            "flex items-center gap-2 px-3 py-1 rounded-sm transition-all duration-300",
+            isCalendarConnected 
+              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+              : "bg-accent/10 text-accent border border-accent/20 hover:bg-accent hover:text-black"
+          )}
+        >
+          <CalendarIcon className="w-3 h-3" />
+          {isCalendarConnected ? 'Calendar Sincronizzato' : 'Sincronizza Google Calendar'}
+        </button>
+      </div>
+
       <div className="mesh-bg" />
 
       {/* Header */}

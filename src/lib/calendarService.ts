@@ -57,5 +57,11 @@ export const calendarService = {
       console.error('Calendar Create Error:', error);
       throw error;
     }
+  },
+
+  async getAuthUrl(): Promise<string> {
+    const response = await fetch('/api/auth/google/url');
+    const data = await response.json();
+    return data.url;
   }
 };

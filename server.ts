@@ -8,35 +8,97 @@ import { google } from "googleapis";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// In-memory token store (In production, use Firestore to persist these)
+const tokenStore: Record<string, any> = {};
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
 
-  // Google Calendar Helper
-  const getCalendarClient = () => {
-    const credsJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-    if (!credsJson) {
-      throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not configured");
+  const getOAuthClient = () => {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    
+    // Construct dynamic redirect URI
+    const redirectUri = process.env.NODE_ENV === 'production' 
+      ? `https://${process.env.APP_NAME}.run.app/api/auth/google/callback`
+      : `http://localhost:3000/api/auth/google/callback`;
+
+    if (!clientId || !clientSecret || clientId.includes('...')) {
+      return null;
     }
-    const credentials = JSON.parse(credsJson);
-    const auth = new google.auth.JWT(
-      credentials.client_email,
-      undefined,
-      credentials.private_key,
-      ["https://www.googleapis.com/auth/calendar"]
-    );
-    return google.calendar({ version: "v3", auth });
+
+    return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
   };
 
-  // API Routes
+  // API: Get OAuth Authorization URL
+  app.get("/api/auth/google/url", (req, res) => {
+    const oauth2Client = getOAuthClient();
+    if (!oauth2Client) return res.status(500).json({ error: "OAuth not configured" });
+
+    const scopes = ["https://www.googleapis.com/auth/calendar"];
+    const url = oauth2Client.generateAuthUrl({
+      access_type: "offline", // Required to get refresh_token
+      scope: scopes,
+      prompt: "consent" // Force to get refresh_token every time for this demo
+    });
+
+    res.json({ url });
+  });
+
+  // API: OAuth Callback
+  app.get("/api/auth/google/callback", async (req, res) => {
+    const { code } = req.query;
+    const oauth2Client = getOAuthClient();
+    if (!oauth2Client || !code) return res.status(400).send("Invalid request");
+
+    try {
+      const { tokens } = await oauth2Client.getToken(code as string);
+      
+      // Store tokens globally for this session
+      // In a real app, you'd save this to a database linked to the user/barber
+      tokenStore['default'] = tokens;
+
+      res.send(`
+        <html>
+          <body>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS' }, '*');
+                window.close();
+              } else {
+                window.location.href = '/';
+              }
+            </script>
+            <div style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+              <h2>Connessione completata!</h2>
+              <p>Questa finestra si chiuderà automaticamente.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("OAuth Callback Error:", error);
+      res.status(500).send("Authentication failed");
+    }
+  });
+
+  // API Routes for Calendar
   app.get("/api/calendar/busy", async (req, res) => {
     try {
       const { calendarId, timeMin, timeMax } = req.query;
-      if (!calendarId) return res.status(400).json({ error: "Missing calendarId" });
+      const oauth2Client = getOAuthClient();
+      const tokens = tokenStore['default'];
 
-      const calendar = getCalendarClient();
+      if (!oauth2Client || !tokens) {
+        return res.json({ busySlots: [], warning: "Calendar not authorized" });
+      }
+
+      oauth2Client.setCredentials(tokens);
+      const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
       const response = await calendar.freebusy.query({
         requestBody: {
           timeMin: timeMin as string,
@@ -56,9 +118,16 @@ async function startServer() {
   app.post("/api/calendar/event", async (req, res) => {
     try {
       const { calendarId, summary, description, start, end } = req.body;
-      if (!calendarId) return res.status(400).json({ error: "Missing calendarId" });
+      const oauth2Client = getOAuthClient();
+      const tokens = tokenStore['default'];
 
-      const calendar = getCalendarClient();
+      if (!oauth2Client || !tokens) {
+        return res.status(401).json({ error: "Calendar not authorized" });
+      }
+
+      oauth2Client.setCredentials(tokens);
+      const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
       const response = await calendar.events.insert({
         calendarId: calendarId as string,
         requestBody: {

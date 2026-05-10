@@ -1,0 +1,74 @@
+{
+  "entities": {
+    "Shop": {
+      "title": "Shop",
+      "description": "Information about a barber shop location",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "image": { "type": "string" }
+      },
+      "required": ["name", "address"]
+    },
+    "Barber": {
+      "title": "Barber",
+      "description": "Information about a barber/poltrona",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "specialty": { "type": "string" },
+        "avatar": { "type": "string" },
+        "googleCalendarId": { "type": "string" }
+      },
+      "required": ["name", "avatar"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Grooming service offered",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "duration": { "type": "number" },
+        "category": { "type": "string", "enum": ["hair", "beard", "combo"] }
+      },
+      "required": ["name", "price", "duration"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "An appointment booking",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "barberId": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["shopId", "barberId", "serviceId", "customerName", "customerPhone", "startTime", "endTime"]
+    }
+  },
+  "firestore": {
+    "/shops/{shopId}": {
+      "schema": { "$ref": "#/entities/Shop" },
+      "description": "Barber shop locations"
+    },
+    "/shops/{shopId}/barbers/{barberId}": {
+      "schema": { "$ref": "#/entities/Barber" },
+      "description": "Barbers belonging to a specific shop"
+    },
+    "/services/{serviceId}": {
+      "schema": { "$ref": "#/entities/Service" },
+      "description": "Shared list of services across all shops"
+    },
+    "/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/Booking" },
+      "description": "Global bookings collection"
+    }
+  }
+}

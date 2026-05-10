@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #c9a050;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-[#050505] text-white;
+  }
+}
+
+@layer components {
+  .mesh-bg {
+    @apply fixed inset-0 -z-10;
+    background: radial-gradient(circle at 20% 30%, #1a1a1a 0%, #050505 100%), 
+                radial-gradient(circle at 80% 70%, #252525 0%, #050505 100%);
+  }
+
+  .glass {
+    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-[20px];
+  }
+
+  .glass-active {
+    @apply border-accent bg-accent/5;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

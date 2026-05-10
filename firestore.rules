@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Validation Blueprints
+    function isValidShop(data) {
+      return data.keys().hasAll(['name', 'address', 'image']) &&
+             data.keys().size() == 3 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.address is string && data.address.size() > 0 && data.address.size() <= 200 &&
+             data.image is string && data.image.size() <= 500;
+    }
+
+    function isValidBarber(data) {
+      return data.keys().hasAll(['name', 'specialty', 'avatar']) &&
+             data.keys().size() >= 3 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.avatar is string && data.avatar.size() <= 500;
+    }
+
+    function isValidService(data) {
+      return data.keys().hasAll(['name', 'price', 'duration', 'category']) &&
+             data.keys().size() == 4 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.price is number && data.price >= 0 &&
+             data.duration is number && data.duration > 0 &&
+             data.category in ['hair', 'beard', 'combo'];
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['shopId', 'barberId', 'serviceId', 'customerName', 'customerPhone', 'startTime', 'endTime', 'status', 'createdAt']) &&
+             data.keys().size() == 9 &&
+             isValidId(data.shopId) &&
+             isValidId(data.barberId) &&
+             isValidId(data.serviceId) &&
+             data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 100 &&
+             data.customerPhone is string && data.customerPhone.size() >= 5 && data.customerPhone.size() <= 20 &&
+             data.startTime is timestamp &&
+             data.endTime is timestamp &&
+             data.status in ['pending', 'confirmed', 'cancelled'] &&
+             data.createdAt == request.time;
+    }
+
+    // 1. Shops
+    match /shops/{shopId} {
+      allow read: if true; // Public can see shops
+      allow write: if isAdmin();
+    }
+
+    // 2. Barbers (Subcollection)
+    match /shops/{shopId}/barbers/{barberId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 3. Services
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 4. Bookings
+    match /bookings/{bookingId} {
+      // 8. Secure List Queries: Check resource.data
+      allow list: if isAdmin(); // Only admins can list all bookings
+      
+      // Allow customers to get their own booking if we had auth, 
+      // but here we'll allow public creation and private reading for admin.
+      // Usually, customers might get their booking by ID if they have it.
+      allow get: if isAdmin(); 
+      
+      allow create: if isValidBooking(incoming()) &&
+                    exists(/databases/$(database)/documents/shops/$(incoming().shopId)) &&
+                    exists(/databases/$(database)/documents/shops/$(incoming().shopId)/barbers/$(incoming().barberId)) &&
+                    exists(/databases/$(database)/documents/services/$(incoming().serviceId));
+
+      allow update: if (
+        isAdmin() && isValidBooking(incoming()) && (
+          // Action: Cancel
+          (incoming().status == 'cancelled' && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+          // Action: Confirm
+          (incoming().status == 'confirmed' && incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+    
+    // 5. Admins
+    match /admins/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false; // Only manual or cloud function provisioning
+    }
+  }
+}

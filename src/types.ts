@@ -1,3 +1,6 @@
+/**
+ * Represents a barber shop location
+ */
 export interface Shop {
   id: string;
   name: string;
@@ -5,6 +8,9 @@ export interface Shop {
   image: string;
 }
 
+/**
+ * Represents a barber working at a shop
+ */
 export interface Barber {
   id: string;
   shopId: string;
@@ -14,6 +20,9 @@ export interface Barber {
   calendarId: string;
 }
 
+/**
+ * Represents a service offered by the barber shop
+ */
 export interface Service {
   id: string;
   name: string;
@@ -22,6 +31,9 @@ export interface Service {
   category: 'hair' | 'beard' | 'combo';
 }
 
+/**
+ * Represents a customer booking
+ */
 export interface Booking {
   id: string;
   shopId: string;
@@ -32,4 +44,5 @@ export interface Booking {
   startTime: string; // ISO string
   endTime: string; // ISO string
   status: 'pending' | 'confirmed' | 'cancelled';
+  createdAt?: string; // Optional timestamp
 }

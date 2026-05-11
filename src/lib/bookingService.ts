@@ -1,8 +1,11 @@
 import { doc, getDocFromServer, collection, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from './firestore';
-import { Booking } from '../types';
+import type { Booking } from '../types';
 
-async function testConnection() {
+/**
+ * Tests Firebase connection on module load
+ */
+async function testConnection(): Promise<void> {
   try {
     await getDocFromServer(doc(db, 'test-connection', 'status'));
   } catch (error) {
@@ -11,17 +14,29 @@ async function testConnection() {
     }
   }
 }
-testConnection();
+
+// Initialize connection test
+void testConnection();
 
 export const bookingService = {
-  async createBooking(bookingData: Omit<Booking, 'id' | 'status' | 'createdAt' | 'startTime' | 'endTime'> & { startTime: Date, endTime: Date }) {
+  /**
+   * Creates a new booking in Firestore
+   * @param bookingData - Booking information without auto-generated fields
+   * @returns The ID of the created booking
+   */
+  async createBooking(
+    bookingData: Omit<Booking, 'id' | 'status' | 'createdAt' | 'startTime' | 'endTime'> & { 
+      startTime: Date; 
+      endTime: Date;
+    }
+  ): Promise<string> {
     const bookingRef = doc(collection(db, 'bookings'));
     const path = `bookings/${bookingRef.id}`;
     
     try {
       const payload = {
         ...bookingData,
-        status: 'pending',
+        status: 'pending' as const,
         startTime: Timestamp.fromDate(bookingData.startTime),
         endTime: Timestamp.fromDate(bookingData.endTime),
         createdAt: serverTimestamp(),
@@ -32,6 +47,9 @@ export const bookingService = {
       return bookingRef.id;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
+      // This line is never reached due to handleFirestoreError throwing, 
+      // but added for type safety
+      throw error;
     }
   }
 };

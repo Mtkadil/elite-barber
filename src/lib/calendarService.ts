@@ -1,10 +1,15 @@
-
 export interface CalendarEvent {
   start: string;
   end: string;
 }
 
 export const calendarService = {
+  /**
+   * Fetches busy time slots from Google Calendar for a specific date
+   * @param calendarId - The Google Calendar ID to query
+   * @param date - The date to check for availability
+   * @returns Array of busy time slots
+   */
   async getBusySlots(calendarId: string, date: Date): Promise<CalendarEvent[]> {
     try {
       const timeMin = new Date(date);
@@ -29,13 +34,18 @@ export const calendarService = {
     }
   },
 
+  /**
+   * Creates a booking event in Google Calendar
+   * @param params - Event creation parameters
+   * @returns The created event data
+   */
   async createBookingEvent(params: {
     calendarId: string;
     summary: string;
     description: string;
     start: Date;
     end: Date;
-  }) {
+  }): Promise<void> {
     try {
       const response = await fetch('/api/calendar/event', {
         method: 'POST',
@@ -57,6 +67,10 @@ export const calendarService = {
     }
   },
 
+  /**
+   * Retrieves the Google OAuth authorization URL
+   * @returns The authorization URL
+   */
   async getAuthUrl(): Promise<string> {
     const response = await fetch('/api/auth/google/url');
     const data = await response.json();

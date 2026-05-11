@@ -1,8 +1,12 @@
-import { db } from './firestore';
 import { doc, writeBatch } from 'firebase/firestore';
+import { db } from './firestore';
+import type { Shop, Barber, Service } from '../types';
 import { SHOPS, BARBERS, SERVICES } from '../constants';
 
-export async function seedDatabase() {
+/**
+ * Seeds the database with initial shop, barber, and service data
+ */
+export async function seedDatabase(): Promise<void> {
   const batch = writeBatch(db);
 
   // Seed Shops

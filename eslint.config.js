@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 
 export default [
   {
-    ignores: ['dist/**/*']
+    ignores: ['dist/**/*', 'firestore.rules']
   },
   ...tseslint.configs.recommended,
   {

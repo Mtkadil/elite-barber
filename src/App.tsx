@@ -32,7 +32,6 @@ export default function App() {
   const [isBooking, setIsBooking] = useState(false);
   const [busySlots, setBusySlots] = useState<{ start: string; end: string }[]>([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
-  const [isCalendarConnected, setIsCalendarConnected] = useState(false);
 
   const selectedShop = SHOPS.find(s => s.id === selectedShopId);
   const selectedBarber = BARBERS.find(b => b.id === selectedBarberId);
@@ -44,20 +43,6 @@ export default function App() {
   );
 
   const baseTimes = ['09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00', '16:00', '17:00'];
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-        setIsCalendarConnected(true);
-        // Refresh availability if we are on that step
-        if (step === 'datetime' && selectedBarber?.calendarId && selectedDate) {
-          fetchAvailability();
-        }
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [step, selectedBarber, selectedDate]);
 
   const fetchAvailability = async () => {
     if (!selectedBarber?.calendarId || !selectedDate) return;
@@ -78,16 +63,6 @@ export default function App() {
       fetchAvailability();
     }
   }, [step, selectedBarber?.calendarId, selectedDate]);
-
-  const handleConnectGoogle = async () => {
-    try {
-      const { calendarService } = await import('./lib/calendarService');
-      const url = await calendarService.getAuthUrl();
-      window.open(url, 'google_auth', 'width=600,height=700');
-    } catch (e) {
-      alert('Impossibile caricare il link di login Google');
-    }
-  };
 
   const availableTimes = useMemo(() => {
     return baseTimes.filter(time => {
@@ -189,18 +164,10 @@ export default function App() {
           <Settings className="w-3 h-3 text-accent" />
           Dashboard Barbiere
         </span>
-        <button 
-          onClick={handleConnectGoogle}
-          className={cn(
-            "flex items-center gap-2 px-3 py-1 rounded-sm transition-all duration-300",
-            isCalendarConnected 
-              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-              : "bg-accent/10 text-accent border border-accent/20 hover:bg-accent hover:text-black"
-          )}
-        >
+        <div className="flex items-center gap-2 px-3 py-1 rounded-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
           <CalendarIcon className="w-3 h-3" />
-          {isCalendarConnected ? 'Calendar Sincronizzato' : 'Sincronizza Google Calendar'}
-        </button>
+          Sincronizzato con Service Account
+        </div>
       </div>
 
       <div className="mesh-bg" />

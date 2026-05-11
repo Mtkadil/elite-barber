@@ -1,6 +1,4 @@
 
-import { format } from 'date-fns';
-
 export interface CalendarEvent {
   start: string;
   end: string;

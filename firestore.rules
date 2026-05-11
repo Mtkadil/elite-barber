@@ -55,16 +55,9 @@ service cloud.firestore {
 
     function isValidBooking(data) {
       return data.keys().hasAll(['shopId', 'barberId', 'serviceId', 'customerName', 'customerPhone', 'status', 'createdAt', 'startTime', 'endTime']) &&
-             data.keys().size() == 9 &&
-             isValidId(data.shopId) &&
-             isValidId(data.barberId) &&
-             isValidId(data.serviceId) &&
-             data.customerName is string && data.customerName.size() > 0 &&
+             data.customerName is string &&
              data.customerPhone is string &&
-             data.status in ['pending', 'confirmed', 'cancelled'] &&
-             data.createdAt is timestamp &&
-             data.startTime is timestamp &&
-             data.endTime is timestamp;
+             data.status in ['pending', 'confirmed', 'cancelled'];
     }
 
     // 1. Shops
